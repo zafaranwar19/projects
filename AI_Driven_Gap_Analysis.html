@@ -1,21 +1,193 @@
-<html>
-
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hover to Expand Content (Full Area) with Collapse</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for demonstration, assuming the content is centered in the viewport */
+        html, body {
+            min-height: 100vh;
+            margin: 0;
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding-top: 50px;
+        }
+        /* The main section container that will expand */
+        #content-section {
+            width: 80%; /* Initial large width for content display */
+            max-width: 1200px;
+            transition: all 0.3s ease-in-out;
+            min-height: 200px;
+            padding: 24px;
+            background-color: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            position: relative; /* Needed for positioning the prompt area */
+        }
+        /* NEW: Class to shrink the section to content width */
+        .w-fit-content {
+            width: fit-content !important; /* Forces the width to match content */
+            max-width: 80%; /* Keep max-width constraint for button overflow protection */
+        }
+        /* Style for the initial prompt button container */
+        #initial-prompt {
+            transition: opacity 0.3s ease;
+            height: 100%;
+            min-height: inherit;
+        }
+    </style>
+</head>
 <body>
-Just a theoretical experiment
-<br><br>
-A given company has not implemented all of computer science and engineering and artificial intelligence and other concepts
-<br><br>
-So can we do the following?
-<br><br>
-Take 200 or some number of different textbooks of computer science and engineering an artificial intelligence books then train artificial intelligence model and create a technical paper long technical paper
-<br><br>
-Then I will take a code base from git Repository and ask Gemini to summarize technical paper on what the project does from high level to low level
-<br><br>
-Now will use artificial intelligence system to compare both technical papers and find out which parts of computer science and engineering summary is missing from the get repository summary. This way we can understand which concepts of computer science and engineering the GitHub repository maybe a very large Repository depends upon
-<br><br>
-And a given company has millions of lines of code and we can summarize what parts of computer science engineering are most used least used and not used at all and so artificial intelligence Concepts as well we can do the same, security Concepts as well we can do the same.
-<br><br>
-It can also be used to understand patents research papers published are related to which part of the scientific knowledge Etc.
-</body>
 
+    <section 
+        id="content-section"
+        aria-live="polite"
+        class="group w-fit-content" 
+        style="min-width: 200px;" 
+    >
+        <div id="initial-prompt" class="flex justify-center items-center h-full min-h-[150px]">
+            <button 
+                id="hover-button"
+                class="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-xl hover:bg-blue-700 transition duration-300"
+            >
+                Hover Over This Section to Load Content
+            </button>
+        </div>
+
+        <div id="content-display" class="w-full text-left hidden">
+            </div>
+        
+        <div id="loading-indicator" class="hidden mt-4 text-blue-500 justify-center items-center">
+            <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500 inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            Fetching content...
+        </div>
+
+    </section>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const section = document.getElementById('content-section');
+            const display = document.getElementById('content-display');
+            const promptArea = document.getElementById('initial-prompt');
+            const loading = document.getElementById('loading-indicator');
+            
+            const REMOTE_URL = 'https://raw.githubusercontent.com/zafaranwar19/projects/main/AI_Driven_Gap_Analysis.html';
+            
+            let loadingTimer = null; 
+            let isContentCurrentlyDisplayed = false; 
+            let contentCache = null; 
+            
+            /**
+             * Function to inject the content into the display container.
+             */
+            const updateDisplay = (content) => {
+                // 1. EXPAND SECTION: Remove the shrinking class to allow the section to grow to the large width (80%/1200px)
+                section.classList.remove('w-fit-content'); 
+
+                // Inject the content
+                display.innerHTML = content;
+                
+                // Show content and hide prompt/loading
+                display.classList.remove('hidden');
+                promptArea.classList.add('hidden');
+                
+                loading.classList.add('hidden');
+                loading.classList.remove('flex'); 
+
+                isContentCurrentlyDisplayed = true;
+            }
+            
+            /**
+             * Clears the displayed content and resets the UI state to the prompt.
+             */
+            const clearContent = () => {
+                // Clear the delayed loading timer if the mouse leaves before it fires
+                if (loadingTimer) {
+                    clearTimeout(loadingTimer);
+                    loadingTimer = null;
+                }
+                
+                // Ensure loading indicator is hidden
+                loading.classList.add('hidden');
+                loading.classList.remove('flex');
+
+                // Hide content, show prompt
+                display.classList.add('hidden');
+                promptArea.classList.remove('hidden'); 
+                
+                // 2. SHRINK SECTION: Add the shrinking class back on mouseleave
+                section.classList.add('w-fit-content'); 
+
+                isContentCurrentlyDisplayed = false;
+            };
+
+            /**
+             * Fetches the content (if not cached) or uses the cache (if available).
+             */
+            const fetchOrDisplayContent = async () => {
+                if (isContentCurrentlyDisplayed) return; 
+
+                // 1. Check Cache: Display instantly if cached
+                if (contentCache !== null) {
+                    updateDisplay(contentCache);
+                    return; 
+                }
+                
+                // --- Start Fetch Process (First Load) ---
+                
+                // Temporarily expand the container before fetching starts, in case the fetch is instant
+                section.classList.remove('w-fit-content'); 
+                promptArea.classList.add('hidden'); // Hide prompt early
+
+                // Set a timer to show the loading indicator 
+                loadingTimer = setTimeout(() => {
+                    loading.classList.remove('hidden');
+                    loading.classList.add('flex');
+                }, 100); 
+
+                try {
+                    const response = await fetch(REMOTE_URL);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! Status: ${response.status}`);
+                    }
+                    
+                    const contentText = await response.text();
+                    contentCache = contentText;
+                    updateDisplay(contentText);
+
+                } catch (error) {
+                    console.error("Error fetching remote content:", error);
+                    
+                    // Display error message
+                    display.innerHTML = `<p class="text-red-500 font-medium p-4 text-center">Failed to load content: ${error.message}. Check console for details.</p>`;
+                    display.classList.remove('hidden');
+                    
+                } finally {
+                    if (loadingTimer) {
+                        clearTimeout(loadingTimer);
+                        loadingTimer = null;
+                    }
+                    loading.classList.add('hidden');
+                    loading.classList.remove('flex');
+                }
+            };
+
+            // 1. Mouse Over (Hover) Event on the main section
+            section.addEventListener('mouseenter', fetchOrDisplayContent);
+
+            // 2. Mouse Out (Leave) Event on the main section
+            section.addEventListener('mouseleave', clearContent);
+        });
+    </script>
+
+</body>
 </html>
